@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>COPY PASTA v2 — TEXT TOOLKIT</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── CRT Flicker ── */
+    @keyframes flicker {
+      0%   { opacity: 1; }
+      92%  { opacity: 1; }
+      93%  { opacity: 0.97; }
+      94%  { opacity: 1; }
+      97%  { opacity: 0.98; }
+      98%  { opacity: 1; }
+      100% { opacity: 1; }
+    }
+
+    /* ── Scanline scroll (subtle) ── */
+    @keyframes scanline-scroll {
+      0%   { background-position: 0 0; }
+      100% { background-position: 0 4px; }
+    }
+
+    body {
+      font-family: "Courier New", "Lucida Console", monospace;
+      background: #000;
+      color: #ff8800;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 30px 20px;
+      animation: flicker 8s infinite;
+      position: relative;
+    }
+
+    /* ── CRT Scanlines Overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 2px,
+        rgba(0, 0, 0, 0.15) 2px,
+        rgba(0, 0, 0, 0.15) 3px
+      );
+      pointer-events: none;
+      z-index: 9999;
+      animation: scanline-scroll 0.5s linear infinite;
+    }
+
+    /* ── CRT Vignette Overlay ── */
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(
+        ellipse at center,
+        transparent 50%,
+        rgba(0, 0, 0, 0.4) 80%,
+        rgba(0, 0, 0, 0.8) 100%
+      );
+      pointer-events: none;
+      z-index: 9998;
+    }
+
+    /* ── CRT Bezel Frame ── */
+    .crt-frame {
+      width: 100%;
+      max-width: 760px;
+      border: 1px solid #ff6600;
+      border-radius: 12px;
+      padding: 18px 22px 22px;
+      box-shadow:
+        0 0 10px rgba(255, 102, 0, 0.3),
+        0 0 30px rgba(255, 102, 0, 0.1),
+        inset 0 0 20px rgba(255, 102, 0, 0.05);
+      position: relative;
+    }
+
+    /* ── Terminal Status Bar ── */
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #ff660044;
+      padding-bottom: 10px;
+      margin-bottom: 16px;
+    }
+
+    .status-bar .title {
+      font-size: 13px;
+      font-weight: bold;
+      color: #ffaa00;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      text-shadow: 0 0 8px rgba(255, 136, 0, 0.6);
+    }
+
+    .status-indicators {
+      display: flex;
+      gap: 16px;
+      font-size: 9px;
+      color: #ff880088;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .status-indicators span.active {
+      color: #ff8800;
+      text-shadow: 0 0 6px rgba(255, 136, 0, 0.5);
+    }
+
+    .status-indicators .indicator-dot {
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #ff6600;
+      box-shadow: 0 0 4px #ff6600, 0 0 8px #ff880044;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    .status-indicators .indicator-dot.idle {
+      background: #ff660044;
+      box-shadow: none;
+    }
+
+    /* ── Section Headers ── */
+    label, .section-label {
+      display: block;
+      font-size: 10px;
+      font-weight: bold;
+      color: #ff880099;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 6px;
+    }
+
+    .section-divider {
+      border: none;
+      border-top: 1px solid #ff660022;
+      margin: 16px 0;
+    }
+
+    /* ── Textareas & Inputs ── */
+    textarea, input[type="text"], input[type="number"] {
+      width: 100%;
+      background: #0a0a0a;
+      border: 1px solid #ff660044;
+      border-radius: 4px;
+      color: #ffffff;
+      font-family: "Courier New", "Lucida Console", monospace;
+      font-size: 13px;
+      padding: 10px 12px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      text-shadow: none;
+    }
+
+    textarea { resize: vertical; }
+
+    textarea::placeholder, input::placeholder {
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    textarea:focus, input[type="text"]:focus, input[type="number"]:focus {
+      border-color: #ff6600;
+      box-shadow: 0 0 8px rgba(255, 102, 0, 0.2), 0 0 20px rgba(255, 102, 0, 0.05);
+    }
+
+    #text-input {
+      height: 60px; /* ~3 lines at 13px + padding */
+      margin-bottom: 6px;
+    }
+
+    /* ── Live Stats Bar ── */
+    .stats-bar {
+      display: flex;
+      gap: 16px;
+      font-size: 9px;
+      color: #ff880066;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 14px;
+      padding: 0 2px;
+    }
+
+    .stats-bar span.has-value {
+      color: #ff880099;
+    }
+
+    /* ── Exclusions Row ── */
+    .exclusions-row {
+      display: flex;
+      align-items: stretch;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .exclusions-row textarea {
+      height: 36px;
+      flex: 1;
+    }
+
+    /* ── Generic Button (shared) ── */
+    .btn {
+      background: #0a0a0a;
+      border: 1px solid #ff660044;
+      color: #ff880088;
+      font-family: "Courier New", "Lucida Console", monospace;
+      font-size: 9px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 0 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      border-color: #ff6600;
+      color: #ff8800;
+      box-shadow: 0 0 8px rgba(255, 102, 0, 0.2);
+      text-shadow: 0 0 6px rgba(255, 136, 0, 0.4);
+    }
+
+    /* ── Case Buttons Row ── */
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .case-btn {
+      flex: 1;
+      min-width: 80px;
+      padding: 9px 10px;
+      background: #0a0a0a;
+      border: 1px solid #ff6600;
+      color: #ffaa00;
+      font-family: "Courier New", "Lucida Console", monospace;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 0.1em;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-shadow: 0 0 6px rgba(255, 136, 0, 0.4);
+      box-shadow: 0 0 6px rgba(255, 102, 0, 0.1);
+    }
+
+    .case-btn:hover {
+      background: #1a0a00;
+      box-shadow: 0 0 10px rgba(255, 102, 0, 0.3), 0 0 20px rgba(255, 136, 0, 0.1);
+      text-shadow: 0 0 10px rgba(255, 136, 0, 0.7);
+    }
+
+    .case-btn:active {
+      transform: scale(0.97);
+      background: #ff660022;
+    }
+
+    /* ── Tool Buttons (secondary row) ── */
+    .tool-btn {
+      flex: 1;
+      min-width: 80px;
+      padding: 8px 8px;
+      background: #0a0a0a;
+      border: 1px solid #ff660066;
+      color: #ff8800aa;
+      font-family: "Courier New", "Lucida Console", monospace;
+      font-size: 9px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .tool-btn:hover {
+      border-color: #ff6600;
+      color: #ffaa00;
+      box-shadow: 0 0 8px rgba(255, 102, 0, 0.2);
+      text-shadow: 0 0 6px rgba(255, 136, 0, 0.4);
+    }
+
+    .tool-btn:active {
+      transform: scale(0.97);
+      background: #ff660011;
+    }
+
+    /* ── Find & Replace ── */
+    .find-replace-row {
+      display: flex;
+      gap: 6px;
+      align-items: stretch;
+      margin-bottom: 6px;
+    }
+
+    .find-replace-row input {
+      flex: 1;
+      padding: 7px 10px;
+      font-size: 11px;
+    }
+
+    .find-replace-row .btn {
+      padding: 7px 12px;
+      font-size: 9px;
+    }
+
+    /* ── Lorem Ipsum Row ── */
+    .lorem-row {
+      display: flex;
+      gap: 6px;
+      align-items: stretch;
+      margin-bottom: 6px;
+    }
+
+    .lorem-row input[type="number"] {
+      width: 60px;
+      flex: none;
+      padding: 7px 8px;
+      font-size: 11px;
+      text-align: center;
+      -moz-appearance: textfield;
+    }
+
+    .lorem-row input[type="number"]::-webkit-inner-spin-button,
+    .lorem-row input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+    }
+
+    .lorem-row select {
+      background: #0a0a0a;
+      border: 1px solid #ff660044;
+      color: #ffffff;
+      font-family: "Courier New", "Lucida Console", monospace;
+      font-size: 11px;
+      padding: 7px 8px;
+      border-radius: 4px;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    .lorem-row select:focus {
+      border-color: #ff6600;
+    }
+
+    .lorem-row select option {
+      background: #0a0a0a;
+      color: #ffffff;
+    }
+
+    .lorem-row .btn {
+      padding: 7px 12px;
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #0a0a0a;
+      color: #ffaa00;
+      border: 1px solid #ff6600;
+      padding: 8px 20px;
+      border-radius: 4px;
+      font-family: "Courier New", "Lucida Console", monospace;
+      font-size: 10px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      text-shadow: 0 0 8px rgba(255, 136, 0, 0.6);
+      box-shadow: 0 0 10px rgba(255, 102, 0, 0.3), 0 0 30px rgba(255, 102, 0, 0.1);
+      z-index: 10000;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0a0a; }
+    ::-webkit-scrollbar-thumb { background: #ff660044; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #ff660088; }
+  </style>
+</head>
+<body>
+  <div class="crt-frame">
+
+    <!-- ── Status Bar ── -->
+    <div class="status-bar">
+      <span class="title">Copy Pasta v2</span>
+      <div class="status-indicators">
+        <span class="active"><span class="indicator-dot"></span>SYS: READY</span>
+        <span class="active"><span class="indicator-dot"></span>MODE: STANDBY</span>
+        <span id="clipboard-status"><span class="indicator-dot idle"></span>CLIPBOARD: IDLE</span>
+      </div>
+    </div>
+
+    <!-- ── Input Buffer ── -->
+    <label for="text-input">// Input Buffer</label>
+    <textarea id="text-input" placeholder="PASTE TEXT HERE..."></textarea>
+
+    <!-- ── Live Stats ── -->
+    <div class="stats-bar">
+      <span id="stat-chars">CHARS: 0</span>
+      <span id="stat-words">WORDS: 0</span>
+      <span id="stat-sentences">SENTENCES: 0</span>
+      <span id="stat-lines">LINES: 0</span>
+      <span id="stat-reading">READ: 0s</span>
+    </div>
+
+    <!-- ── Exclusions ── -->
+    <label for="exclusions">// Exclusions (comma-separated)</label>
+    <div class="exclusions-row">
+      <textarea id="exclusions" placeholder='e.g. BMW, iOS, McDonald&#39;s'></textarea>
+      <button class="btn" id="clear-exclusions">Purge</button>
+    </div>
+
+    <!-- ── Case Conversion ── -->
+    <span class="section-label">// Case</span>
+    <div class="btn-row">
+      <button class="case-btn" data-case="sentence">Sentence</button>
+      <button class="case-btn" data-case="lower">lower</button>
+      <button class="case-btn" data-case="upper">UPPER</button>
+      <button class="case-btn" data-case="capitalize">Capital</button>
+      <button class="case-btn" data-case="title">Title</button>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- ── Text Cleanup ── -->
+    <span class="section-label">// Cleanup</span>
+    <div class="btn-row">
+      <button class="tool-btn" data-tool="strip-whitespace">Strip Spaces</button>
+      <button class="tool-btn" data-tool="remove-breaks">Kill Breaks</button>
+      <button class="tool-btn" data-tool="smart-quotes">Smart Quotes</button>
+      <button class="tool-btn" data-tool="straight-quotes">Straight Quotes</button>
+      <button class="tool-btn" data-tool="strip-html">Strip HTML</button>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- ── Encode / Decode ── -->
+    <span class="section-label">// Encode / Decode</span>
+    <div class="btn-row">
+      <button class="tool-btn" data-tool="html-encode">HTML Encode</button>
+      <button class="tool-btn" data-tool="html-decode">HTML Decode</button>
+      <button class="tool-btn" data-tool="url-encode">URL Encode</button>
+      <button class="tool-btn" data-tool="url-decode">URL Decode</button>
+      <button class="tool-btn" data-tool="slug">Slug</button>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- ── List Operations ── -->
+    <span class="section-label">// List Ops</span>
+    <div class="btn-row">
+      <button class="tool-btn" data-tool="sort-az">Sort A-Z</button>
+      <button class="tool-btn" data-tool="sort-za">Sort Z-A</button>
+      <button class="tool-btn" data-tool="dedup">Dedup</button>
+      <button class="tool-btn" data-tool="number-lines">Number</button>
+      <button class="tool-btn" data-tool="bullet-lines">Bullet</button>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- ── Find & Replace ── -->
+    <span class="section-label">// Find & Replace</span>
+    <div class="find-replace-row">
+      <input type="text" id="find-input" placeholder="FIND...">
+      <input type="text" id="replace-input" placeholder="REPLACE...">
+      <button class="btn" id="replace-btn">Apply</button>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- ── Lorem Ipsum ── -->
+    <span class="section-label">// Lorem Ipsum Generator</span>
+    <div class="lorem-row">
+      <input type="number" id="lorem-count" value="3" min="1" max="50">
+      <select id="lorem-unit">
+        <option value="sentences">Sentences</option>
+        <option value="paragraphs">Paragraphs</option>
+      </select>
+      <button class="btn" id="lorem-btn">Generate</button>
+    </div>
+
+  </div>
+
+  <div class="toast" id="toast">▸ COPIED TO CLIPBOARD</div>
+
+  <script>
+    // ── DOM Refs ──
+    const textInput = document.getElementById('text-input');
+    const exclusionsInput = document.getElementById('exclusions');
+    const clearBtn = document.getElementById('clear-exclusions');
+    const toast = document.getElementById('toast');
+    const clipboardStatus = document.getElementById('clipboard-status');
+    const findInput = document.getElementById('find-input');
+    const replaceInput = document.getElementById('replace-input');
+    const replaceBtn = document.getElementById('replace-btn');
+    const loremCount = document.getElementById('lorem-count');
+    const loremUnit = document.getElementById('lorem-unit');
+    const loremBtn = document.getElementById('lorem-btn');
+
+    // ── Stats ──
+    const statChars = document.getElementById('stat-chars');
+    const statWords = document.getElementById('stat-words');
+    const statSentences = document.getElementById('stat-sentences');
+    const statLines = document.getElementById('stat-lines');
+    const statReading = document.getElementById('stat-reading');
+
+    function updateStats() {
+      const text = textInput.value;
+      const chars = text.length;
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      const sentences = text.trim() ? (text.match(/[.!?]+(\s|$)/g) || []).length || (words > 0 ? 1 : 0) : 0;
+      const lines = text.trim() ? text.split(/\n/).length : 0;
+      const readSec = Math.ceil(words / 4.2); // ~250 wpm = ~4.2 wps
+
+      statChars.textContent = `CHARS: ${chars}`;
+      statWords.textContent = `WORDS: ${words}`;
+      statSentences.textContent = `SENTENCES: ${sentences}`;
+      statLines.textContent = `LINES: ${lines}`;
+      statReading.textContent = readSec >= 60 ? `READ: ${Math.floor(readSec/60)}m ${readSec%60}s` : `READ: ${readSec}s`;
+
+      [statChars, statWords, statSentences, statLines, statReading].forEach(el => {
+        el.classList.toggle('has-value', chars > 0);
+      });
+    }
+
+    textInput.addEventListener('input', updateStats);
+    updateStats();
+
+    // ── Exclusions (localStorage) ──
+    const saved = localStorage.getItem('copy-pasta-exclusions');
+    if (saved) exclusionsInput.value = saved;
+
+    exclusionsInput.addEventListener('input', () => {
+      localStorage.setItem('copy-pasta-exclusions', exclusionsInput.value);
+    });
+
+    clearBtn.addEventListener('click', () => {
+      exclusionsInput.value = '';
+      localStorage.removeItem('copy-pasta-exclusions');
+    });
+
+    function getExclusions() {
+      return exclusionsInput.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    }
+
+    function applyExclusions(text, exclusions) {
+      let result = text;
+      for (const word of exclusions) {
+        const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
+        result = result.replace(regex, word);
+      }
+      return result;
+    }
+
+    // ── Case Conversion ──
+    const titleSmallWords = new Set([
+      'a', 'an', 'the', 'and', 'but', 'or', 'nor', 'for', 'yet', 'so',
+      'in', 'on', 'at', 'to', 'by', 'of', 'up', 'as', 'is', 'it'
+    ]);
+
+    const apostropher = /[\w'\u2018\u2019\u0027\u2032]+/g;
+    const apostropheStrip = /['\u2018\u2019\u0027\u2032]/g;
+
+    function toSentenceCase(text) {
+      return text.toLowerCase().replace(/(^\s*|[.!?]\s+)([a-z])/g, (m, sep, c) => sep + c.toUpperCase());
+    }
+
+    function toCapitalizedCase(text) {
+      return text.toLowerCase().replace(apostropher, w => w.charAt(0).toUpperCase() + w.slice(1));
+    }
+
+    function toTitleCase(text) {
+      let isFirst = true;
+      return text.toLowerCase().replace(apostropher, (word) => {
+        const core = word.replace(apostropheStrip, '');
+        if (isFirst || !titleSmallWords.has(core)) {
+          isFirst = false;
+          return word.charAt(0).toUpperCase() + word.slice(1);
+        }
+        isFirst = false;
+        return word;
+      });
+    }
+
+    function convertCase(mode) {
+      let text = textInput.value;
+      if (!text.trim()) return;
+      const exclusions = getExclusions();
+
+      switch (mode) {
+        case 'sentence':   text = toSentenceCase(text); break;
+        case 'lower':      text = text.toLowerCase(); break;
+        case 'upper':      text = text.toUpperCase(); break;
+        case 'capitalize': text = toCapitalizedCase(text); break;
+        case 'title':      text = toTitleCase(text); break;
+      }
+
+      text = applyExclusions(text, exclusions);
+      setTextAndCopy(text);
+    }
+
+    document.querySelectorAll('.case-btn').forEach(btn => {
+      btn.addEventListener('click', () => convertCase(btn.dataset.case));
+    });
+
+    // ── Tool Operations ──
+    const tools = {
+      'strip-whitespace': t => t.replace(/[ \t]+/g, ' ').replace(/^ +| +$/gm, '').replace(/\n{3,}/g, '\n\n'),
+      'remove-breaks': t => t.replace(/\r?\n+/g, ' ').replace(/ {2,}/g, ' ').trim(),
+      'smart-quotes': t => t
+        .replace(/(\s|^)"(\S)/g, '$1\u201C$2')
+        .replace(/(\S)"(\s|$|[.,;:!?])/g, '$1\u201D$2')
+        .replace(/"/g, '\u201D')
+        .replace(/(\s|^)'(\S)/g, '$1\u2018$2')
+        .replace(/(\S)'(\s|$|[.,;:!?])/g, '$1\u2019$2')
+        .replace(/'/g, '\u2019'),
+      'straight-quotes': t => t
+        .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+        .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'"),
+      'strip-html': t => {
+        const doc = new DOMParser().parseFromString(t, 'text/html');
+        return doc.body.textContent || '';
+      },
+      'html-encode': t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'),
+      'html-decode': t => {
+        const doc = new DOMParser().parseFromString(t, 'text/html');
+        return doc.documentElement.textContent;
+      },
+      'url-encode': t => encodeURIComponent(t),
+      'url-decode': t => { try { return decodeURIComponent(t); } catch(e) { return t; } },
+      'slug': t => t.split('\n').map(line => line.toLowerCase().trim()
+        .replace(/[\u2018\u2019\u0027\u2032]/g, '')
+        .replace(/[^\w\s-]/g, '')
+        .replace(/[\s_]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+      ).join('\n'),
+      'sort-az': t => t.split('\n').sort((a,b) => a.localeCompare(b)).join('\n'),
+      'sort-za': t => t.split('\n').sort((a,b) => b.localeCompare(a)).join('\n'),
+      'dedup': t => [...new Set(t.split('\n'))].join('\n'),
+      'number-lines': t => t.split('\n').map((l,i) => `${i+1}. ${l}`).join('\n'),
+      'bullet-lines': t => t.split('\n').map(l => `\u2022 ${l}`).join('\n'),
+    };
+
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const text = textInput.value;
+        if (!text.trim()) return;
+        const fn = tools[btn.dataset.tool];
+        if (fn) setTextAndCopy(fn(text));
+      });
+    });
+
+    // ── Find & Replace ──
+    replaceBtn.addEventListener('click', () => {
+      const text = textInput.value;
+      const find = findInput.value;
+      if (!text || !find) return;
+      const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const result = text.replace(new RegExp(escaped, 'g'), replaceInput.value);
+      setTextAndCopy(result);
+    });
+
+    // ── Lorem Ipsum ──
+    const loremPool = [
+      "Tempestates venerunt super planitiem fractam et milites in tenebris stabant.",
+      "Gladius eius lucem auream emisit, iuramentum antiquum in acie renovatum.",
+      "Reges ceciderunt et turres eorum in pulverem redactae sunt.",
+      "Per campos desolatos iter fecit, umbras praeteritorum bellorum sequens.",
+      "Iuravit sub caelo ardenti se numquam genua flexurum.",
+      "Laminae armaturae fractae sunt sed animus eius integer mansit.",
+      "Ventus ululavit per ruinas urbis quondam magnae et potentis.",
+      "Oculi eius flammas tempestatis reflectebant dum ad hostem progreditur.",
+      "Fulmina super montes resonabant et terra ipsa tremebat sub pedibus.",
+      "Custodes ad murum stabant, vigilantes contra tenebras crescentes.",
+      "Liber antiquus secreta potestatis oblitae intra paginas celabat.",
+      "Ex cinere veteris mundi novum regnum surrexit, forgiatum ferro et igne.",
+      "Milites iuramentum dixerunt, voces eorum per vallem resonantes.",
+      "Nemo scire poterat quid ultra tempestates iaceret, sed progredi debebant.",
+      "Lux per nubila erupit et campus desolatus in auro splenduit.",
+      "Scutum eius mille ictus tulit sed numquam confractum est.",
+      "In profundis terrae antiqua potestas evigilavit et oculos aperuit.",
+      "Heroes non nascuntur sed in fornace adversitatis formantur.",
+      "Ultimum proelium non viribus sed voluntate et honore decernetur.",
+      "Stetit solus contra exercitum, et tempestates ipsae ab eo recesserunt.",
+    ];
+
+    function generateLorem() {
+      const count = parseInt(loremCount.value) || 3;
+      const unit = loremUnit.value;
+      let result = '';
+
+      if (unit === 'sentences') {
+        const sentences = [];
+        for (let i = 0; i < count; i++) {
+          sentences.push(loremPool[i % loremPool.length]);
+        }
+        result = sentences.join(' ');
+      } else {
+        const paragraphs = [];
+        for (let p = 0; p < count; p++) {
+          const sentCount = 3 + Math.floor(Math.random() * 4); // 3-6 sentences
+          const para = [];
+          for (let s = 0; s < sentCount; s++) {
+            const idx = (p * 7 + s) % loremPool.length;
+            para.push(loremPool[idx]);
+          }
+          paragraphs.push(para.join(' '));
+        }
+        result = paragraphs.join('\n\n');
+      }
+
+      setTextAndCopy(result);
+    }
+
+    loremBtn.addEventListener('click', generateLorem);
+
+    // ── Shared: set text, copy, update ──
+    function setTextAndCopy(text) {
+      textInput.value = text;
+      updateStats();
+      navigator.clipboard.writeText(text).then(() => {
+        showToast();
+        updateClipboardStatus(true);
+      });
+    }
+
+    function updateClipboardStatus(active) {
+      if (active) {
+        clipboardStatus.innerHTML = '<span class="indicator-dot"></span>CLIPBOARD: COPIED';
+        clipboardStatus.classList.add('active');
+        setTimeout(() => {
+          clipboardStatus.innerHTML = '<span class="indicator-dot idle"></span>CLIPBOARD: IDLE';
+          clipboardStatus.classList.remove('active');
+        }, 2000);
+      }
+    }
+
+    function showToast() {
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 1500);
+    }
+  </script>
+</body>
+</html>

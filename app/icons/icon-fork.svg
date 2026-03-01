@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a0a00"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+    <filter id="amber-glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="url(#glow)"/>
+  <circle cx="256" cy="256" r="240" fill="none" stroke="#ff6600" stroke-width="3" opacity="0.3"/>
+  <!-- Fork -->
+  <g filter="url(#amber-glow)" transform="translate(256,256) rotate(-30) translate(-256,-256)">
+    <!-- Fork handle -->
+    <rect x="244" y="240" width="24" height="180" rx="6" fill="#ff8800"/>
+    <!-- Fork tines -->
+    <rect x="180" y="100" width="14" height="150" rx="7" fill="#ff8800"/>
+    <rect x="213" y="85" width="14" height="165" rx="7" fill="#ff8800"/>
+    <rect x="249" y="80" width="14" height="170" rx="7" fill="#ff8800"/>
+    <rect x="285" y="85" width="14" height="165" rx="7" fill="#ff8800"/>
+    <rect x="318" y="100" width="14" height="150" rx="7" fill="#ff8800"/>
+    <!-- Fork neck curve -->
+    <path d="M180,250 Q180,270 244,270 L268,270 Q332,270 332,250 L332,240 Q332,260 268,260 L244,260 Q180,260 180,240 Z" fill="#ff8800"/>
+  </g>
+  <!-- Pasta swirl around fork -->
+  <g filter="url(#amber-glow)" opacity="0.7">
+    <ellipse cx="220" cy="310" rx="80" ry="30" fill="none" stroke="#ffaa00" stroke-width="8" stroke-dasharray="20,15" transform="rotate(-20,220,310)"/>
+    <ellipse cx="240" cy="330" rx="60" ry="22" fill="none" stroke="#ff8800" stroke-width="6" stroke-dasharray="15,12" transform="rotate(-10,240,330)"/>
+  </g>
+  <!-- Subtle scanlines -->
+  <g opacity="0.06">
+    <line x1="40" y1="120" x2="472" y2="120" stroke="#ff8800" stroke-width="1"/>
+    <line x1="40" y1="180" x2="472" y2="180" stroke="#ff8800" stroke-width="1"/>
+    <line x1="40" y1="240" x2="472" y2="240" stroke="#ff8800" stroke-width="1"/>
+    <line x1="40" y1="300" x2="472" y2="300" stroke="#ff8800" stroke-width="1"/>
+    <line x1="40" y1="360" x2="472" y2="360" stroke="#ff8800" stroke-width="1"/>
+    <line x1="40" y1="420" x2="472" y2="420" stroke="#ff8800" stroke-width="1"/>
+  </g>
+</svg>

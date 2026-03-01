@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>COPY PASTA — CASE CONVERTER</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── CRT Flicker ── */
+    @keyframes flicker {
+      0%   { opacity: 1; }
+      92%  { opacity: 1; }
+      93%  { opacity: 0.97; }
+      94%  { opacity: 1; }
+      97%  { opacity: 0.98; }
+      98%  { opacity: 1; }
+      100% { opacity: 1; }
+    }
+
+    /* ── Scanline scroll (subtle) ── */
+    @keyframes scanline-scroll {
+      0%   { background-position: 0 0; }
+      100% { background-position: 0 4px; }
+    }
+
+    body {
+      font-family: "Courier New", "Lucida Console", monospace;
+      background: #000;
+      color: #ff8800;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 40px 20px;
+      animation: flicker 8s infinite;
+      position: relative;
+    }
+
+    /* ── CRT Scanlines Overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 2px,
+        rgba(0, 0, 0, 0.15) 2px,
+        rgba(0, 0, 0, 0.15) 3px
+      );
+      pointer-events: none;
+      z-index: 9999;
+      animation: scanline-scroll 0.5s linear infinite;
+    }
+
+    /* ── CRT Vignette Overlay ── */
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(
+        ellipse at center,
+        transparent 50%,
+        rgba(0, 0, 0, 0.4) 80%,
+        rgba(0, 0, 0, 0.8) 100%
+      );
+      pointer-events: none;
+      z-index: 9998;
+    }
+
+    /* ── CRT Bezel Frame ── */
+    .crt-frame {
+      width: 100%;
+      max-width: 720px;
+      border: 1px solid #ff6600;
+      border-radius: 12px;
+      padding: 20px 24px 24px;
+      box-shadow:
+        0 0 10px rgba(255, 102, 0, 0.3),
+        0 0 30px rgba(255, 102, 0, 0.1),
+        inset 0 0 20px rgba(255, 102, 0, 0.05);
+      position: relative;
+    }
+
+    /* ── Terminal Status Bar ── */
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #ff660044;
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+    }
+
+    .status-bar .title {
+      font-size: 13px;
+      font-weight: bold;
+      color: #ffaa00;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      text-shadow: 0 0 8px rgba(255, 136, 0, 0.6);
+    }
+
+    .status-indicators {
+      display: flex;
+      gap: 16px;
+      font-size: 9px;
+      color: #ff880088;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .status-indicators span.active {
+      color: #ff8800;
+      text-shadow: 0 0 6px rgba(255, 136, 0, 0.5);
+    }
+
+    .status-indicators .indicator-dot {
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #ff6600;
+      box-shadow: 0 0 4px #ff6600, 0 0 8px #ff880044;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    .status-indicators .indicator-dot.idle {
+      background: #ff660044;
+      box-shadow: none;
+    }
+
+    /* ── Labels ── */
+    label {
+      display: block;
+      font-size: 10px;
+      font-weight: bold;
+      color: #ff880099;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 6px;
+    }
+
+    /* ── Textareas ── */
+    textarea {
+      width: 100%;
+      background: #0a0a0a;
+      border: 1px solid #ff660044;
+      border-radius: 4px;
+      color: #ffffff;
+      font-family: "Courier New", "Lucida Console", monospace;
+      font-size: 13px;
+      padding: 12px;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      text-shadow: none;
+    }
+
+    textarea::placeholder {
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    textarea:focus {
+      border-color: #ff6600;
+      box-shadow: 0 0 8px rgba(255, 102, 0, 0.2), 0 0 20px rgba(255, 102, 0, 0.05);
+    }
+
+    #text-input {
+      height: 200px;
+      margin-bottom: 20px;
+    }
+
+    /* ── Exclusions Row ── */
+    .exclusions-row {
+      display: flex;
+      align-items: stretch;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .exclusions-row textarea {
+      height: 44px;
+      flex: 1;
+    }
+
+    .clear-btn {
+      background: #0a0a0a;
+      border: 1px solid #ff660044;
+      color: #ff880088;
+      font-family: "Courier New", "Lucida Console", monospace;
+      font-size: 9px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 0 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .clear-btn:hover {
+      border-color: #ff6600;
+      color: #ff8800;
+      box-shadow: 0 0 8px rgba(255, 102, 0, 0.2);
+      text-shadow: 0 0 6px rgba(255, 136, 0, 0.4);
+    }
+
+    /* ── Case Buttons ── */
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .case-btn {
+      flex: 1;
+      min-width: 100px;
+      padding: 11px 14px;
+      background: #0a0a0a;
+      border: 1px solid #ff6600;
+      color: #ffaa00;
+      font-family: "Courier New", "Lucida Console", monospace;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 0.1em;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-shadow: 0 0 6px rgba(255, 136, 0, 0.4);
+      box-shadow: 0 0 6px rgba(255, 102, 0, 0.1);
+    }
+
+    .case-btn:hover {
+      background: #1a0a00;
+      box-shadow:
+        0 0 10px rgba(255, 102, 0, 0.3),
+        0 0 20px rgba(255, 136, 0, 0.1);
+      text-shadow: 0 0 10px rgba(255, 136, 0, 0.7);
+    }
+
+    .case-btn:active {
+      transform: scale(0.97);
+      background: #ff660022;
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #0a0a0a;
+      color: #ffaa00;
+      border: 1px solid #ff6600;
+      padding: 8px 20px;
+      border-radius: 4px;
+      font-family: "Courier New", "Lucida Console", monospace;
+      font-size: 10px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      text-shadow: 0 0 8px rgba(255, 136, 0, 0.6);
+      box-shadow: 0 0 10px rgba(255, 102, 0, 0.3), 0 0 30px rgba(255, 102, 0, 0.1);
+      z-index: 10000;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0a0a; }
+    ::-webkit-scrollbar-thumb { background: #ff660044; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #ff660088; }
+  </style>
+</head>
+<body>
+  <div class="crt-frame">
+    <div class="status-bar">
+      <span class="title">Copy Pasta</span>
+      <div class="status-indicators">
+        <span class="active"><span class="indicator-dot"></span>SYS: READY</span>
+        <span class="active"><span class="indicator-dot"></span>MODE: STANDBY</span>
+        <span id="clipboard-status"><span class="indicator-dot idle"></span>CLIPBOARD: IDLE</span>
+      </div>
+    </div>
+
+    <label for="text-input">// Input Buffer</label>
+    <textarea id="text-input" placeholder="PASTE TEXT HERE..."></textarea>
+
+    <label for="exclusions">// Exclusions (comma-separated)</label>
+    <div class="exclusions-row">
+      <textarea id="exclusions" placeholder='e.g. BMW, iOS, McDonald&#39;s'></textarea>
+      <button class="clear-btn" id="clear-exclusions">Purge</button>
+    </div>
+
+    <div class="buttons">
+      <button class="case-btn" data-case="sentence">Sentence</button>
+      <button class="case-btn" data-case="lower">lower</button>
+      <button class="case-btn" data-case="upper">UPPER</button>
+      <button class="case-btn" data-case="capitalize">Capital</button>
+      <button class="case-btn" data-case="title">Title</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">▸ COPIED TO CLIPBOARD</div>
+
+  <script>
+    const textInput = document.getElementById('text-input');
+    const exclusionsInput = document.getElementById('exclusions');
+    const clearBtn = document.getElementById('clear-exclusions');
+    const toast = document.getElementById('toast');
+    const clipboardStatus = document.getElementById('clipboard-status');
+
+    // Load exclusions from localStorage
+    const saved = localStorage.getItem('copy-pasta-exclusions');
+    if (saved) exclusionsInput.value = saved;
+
+    // Save exclusions on change
+    exclusionsInput.addEventListener('input', () => {
+      localStorage.setItem('copy-pasta-exclusions', exclusionsInput.value);
+    });
+
+    // Clear exclusions
+    clearBtn.addEventListener('click', () => {
+      exclusionsInput.value = '';
+      localStorage.removeItem('copy-pasta-exclusions');
+    });
+
+    function getExclusions() {
+      return exclusionsInput.value
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+    }
+
+    function applyExclusions(text, exclusions) {
+      let result = text;
+      for (const word of exclusions) {
+        const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
+        result = result.replace(regex, word);
+      }
+      return result;
+    }
+
+    const titleSmallWords = new Set([
+      'a', 'an', 'the', 'and', 'but', 'or', 'nor', 'for', 'yet', 'so',
+      'in', 'on', 'at', 'to', 'by', 'of', 'up', 'as', 'is', 'it'
+    ]);
+
+    function toSentenceCase(text) {
+      return text.toLowerCase().replace(/(^\s*|[.!?]\s+)([a-z])/g, (match, sep, char) => {
+        return sep + char.toUpperCase();
+      });
+    }
+
+    const apostropher = /[\w'\u2018\u2019\u0027\u2032]+/g;
+    const apostropheStrip = /['\u2018\u2019\u0027\u2032]/g;
+
+    function toCapitalizedCase(text) {
+      return text.toLowerCase().replace(apostropher, (word) => {
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      });
+    }
+
+    function toTitleCase(text) {
+      let isFirst = true;
+      return text.toLowerCase().replace(apostropher, (word) => {
+        const core = word.replace(apostropheStrip, '');
+        if (isFirst || !titleSmallWords.has(core)) {
+          isFirst = false;
+          return word.charAt(0).toUpperCase() + word.slice(1);
+        }
+        isFirst = false;
+        return word;
+      });
+    }
+
+    function updateClipboardStatus(active) {
+      if (active) {
+        clipboardStatus.innerHTML = '<span class="indicator-dot"></span>CLIPBOARD: COPIED';
+        clipboardStatus.classList.add('active');
+        setTimeout(() => {
+          clipboardStatus.innerHTML = '<span class="indicator-dot idle"></span>CLIPBOARD: IDLE';
+          clipboardStatus.classList.remove('active');
+        }, 2000);
+      }
+    }
+
+    function convert(mode) {
+      let text = textInput.value;
+      if (!text.trim()) return;
+
+      const exclusions = getExclusions();
+
+      switch (mode) {
+        case 'sentence':   text = toSentenceCase(text); break;
+        case 'lower':      text = text.toLowerCase(); break;
+        case 'upper':      text = text.toUpperCase(); break;
+        case 'capitalize': text = toCapitalizedCase(text); break;
+        case 'title':      text = toTitleCase(text); break;
+      }
+
+      text = applyExclusions(text, exclusions);
+      textInput.value = text;
+
+      navigator.clipboard.writeText(text).then(() => {
+        showToast();
+        updateClipboardStatus(true);
+      });
+    }
+
+    function showToast() {
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 1500);
+    }
+
+    document.querySelectorAll('.case-btn').forEach(btn => {
+      btn.addEventListener('click', () => convert(btn.dataset.case));
+    });
+  </script>
+</body>
+</html>
